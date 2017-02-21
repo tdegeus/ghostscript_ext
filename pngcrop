@@ -1,0 +1,116 @@
+#!/usr/bin/env python
+
+import sys,os,argparse,re,subprocess
+
+# ==============================================================================
+
+def error(message):
+  print(message)
+  sys.exit(1)
+
+# ==============================================================================
+
+def printversion():
+  print('''
+Version 0.1
+  ''')
+  sys.exit(0)
+
+# ==============================================================================
+
+def printhelp():
+  print('''
+NAME
+
+  pngcrop - crop a PNG image and remove the background
+
+USAGE
+
+  $ pngcrop [-o FOLDER] IMAGE.PNG [IMAGE.PNG]
+
+DESCRIPTION
+
+  Crop a PNG image and remove the background
+
+OPTIONS
+
+  -h, --help
+    Print help.
+
+  --version
+    Print version.
+
+  -o, --output STR
+    Specify the output-directory manually. By default "cropped" is used.
+
+  --trim True|False
+    Crop the image (default: True).
+
+  --transparent STR|False
+    Make a background color transparent (default: white)
+
+RELEASE
+
+  Version 0.1, May 2016
+
+COPYRIGHT
+
+  R.A. van Tuijl
+  T.W.J. de Geus
+  ''')
+
+  sys.exit(0)
+
+# ==============================================================================
+
+# set options/arguments
+opts   = [\
+  ((     'input'        ),dict(nargs='+',type=str                  ,metavar='IMAGE.PNG')),
+  (('-o','--output'     ),dict(nargs=1  ,type=str,default='cropped',metavar='FOLDER'   )),
+  (('-h','--help'       ),dict(action='store_true'                                     )),
+  ((     '--version'    ),dict(action='store_true'                                     )),
+  ((     '--trim'       ),dict(nargs=1  ,type=str,default='true'                       )),
+  ((     '--transparent'),dict(nargs=1  ,type=str,default='white'                      )),
+]
+
+# parse command-line arguments
+# - catch help
+if sys.argv[1] in ['-h','--help'   ]: printhelp()
+if sys.argv[1] in [     '--version']: printversion()
+# - create parser
+parser = argparse.ArgumentParser(add_help=False)
+for (arg,opt) in opts:
+  if type(arg)==tuple: parser.add_argument(*arg,**opt)
+  else               : parser.add_argument( arg,**opt)
+# - execute parser / convert to "<dict>"
+args = vars(parser.parse_args())
+# - print help and exit
+if args['help'   ]: printhelp()
+if args['version']: printversion()
+
+# convert from list
+for key in ['trim','transparent','output']:
+  if type(args[key])==list:
+    args[key] = args[key][0]
+
+args['input'] = ' '.join(args['input'])
+
+# convert arguments
+if    args['transparent'].lower()=='false': args['transparent']=False
+if    args['trim'       ].lower()=='true' : args['trim'       ]=True
+elif  args['trim'       ].lower()=='false': args['trim'       ]=False
+else: error('Unknown argument --trim="%s"'%args['trim'])
+
+
+
+# ==============================================================================
+
+if not os.path.exists(args['output'])    : os.makedirs(args['output'])
+
+if   args['trim'] and args['transparent']: cmd = 'mogrify -path {output:s} -transparent {transparent:s} -trim {input:s}'
+elif args['trim']                        : cmd = 'mogrify -path {output:s} -trim {input:s}'
+elif args['transparent']                 : cmd = 'mogrify -path {output:s} -transparent {transparent:s} {input:s}'
+else                                     : cmd = 'mogrify -path {output:s} {input:s}'
+
+subprocess.check_output(cmd.format(**args),shell=True)
+

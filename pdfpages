@@ -1,0 +1,127 @@
+#!/bin/bash
+
+# ==============================================================================
+
+function printhelp {
+echo "\
+
+NAME
+
+  pdfpages - extract pages from a PDF using Ghost-script
+
+USAGE
+
+  $ pdfpages [-r] [-o OUTPUT] BEGINPAGE ENDPAGE FILE
+
+DESCRIPTION
+
+  The program creates a new PDF which contains a selection of pages of the
+  original PDF (FILE)
+
+OPTIONS
+
+  -h, --help
+    Print help.
+
+  -r
+    Replace the existing PDF with the PDF only containing the page selection.
+
+  -o STR
+    Choose a new for the PDF containing the page selection. By defaults '_pages'
+    is appended to the file-name of the input file.
+
+EXAMPLES
+
+  $ pdfpages 2 2 example.pdf
+
+    Extract the 2nd page of the files 'example.pdf'. A new file
+    'example_pages.pdf' is created which contains one page: the second page of
+    'example.pdf'
+
+RELEASE
+
+  Version 1.0, September 2012
+
+COPYRIGHT
+
+  T.W.J. de Geus
+  tom@geus.me
+  www.geus.me
+"
+}
+
+# ==============================================================================
+
+# set usage
+usage="pdfextract [-r] [-o OUTPUT] BEGINPAGE ENDPAGE FILE"
+
+# set default
+replace=0 # do not replace input file
+custom=0  # automatically generate output filesname
+
+# read optional input
+while getopts 'rh-:o:' OPT; do
+  case $OPT in
+    # help (-h or --help)
+    h )   printhelp; exit 0; ;;
+    - )   case $OPTARG in
+            help) printhelp;   exit 0 ;;
+            *)    echo $usage; exit 1 ;;
+          esac;;
+    # replace the file
+    r ) replace=1 ;;
+    # replace the file
+    o ) custom=1; nameout=$OPTARG ;;
+    # error on unknown options
+    \? )  echo $usage; exit 1 ;;
+  esac
+done
+
+# remove the input options from "$@"
+shift $(($OPTIND-1))
+
+# check
+if [ $replace -eq 1 ] && [ $custom -eq 1 ]; then
+  echo "-r and -o options cannot be used simultaneously"
+  exit 1
+fi
+
+# ==============================================================================
+
+# read the starting page from the input
+pstart=$1
+# read the ending page from the input
+pend=$2
+# read the file name of the PDF from the input
+namein=$3
+
+if [ $custom -eq 0 ]; then
+  # create a file name, different than the input
+  if [ $replace -eq 0 ]; then
+    # strip the extension of the filename
+    nameout=`echo $namein | rev | cut -d"." -f2- | rev`
+    extent=`echo $namein | rev | cut -d"." -f1 | rev`
+    # add "_pages" to the end of the filename and re-add the extension
+    nameout=`echo "$nameout""_pages.""$extent"`
+  # create a temporary file
+  elif [ $replace -eq 1 ]; then
+    # generate an unlikely string
+    numb=`date '+%y%m%d%H%M%S'`
+    # add string to name
+    nameout=`echo "$name$numb"`
+  fi
+fi
+
+# extract the pages from the PDF using Ghost-script
+gs -sDEVICE=pdfwrite -dNOPAUSE -dQUIET -dBATCH\
+   -dFirstPage="$pstart" -dLastPage="$pend"\
+   -sOutputFile="$nameout" "$namein"
+
+# do the replacing
+if [ $replace -eq 1 ]; then
+  mv "$nameout" "$namein"
+fi
+
+# ==============================================================================
+
+exit 0

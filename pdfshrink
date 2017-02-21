@@ -1,0 +1,120 @@
+#!/usr/bin/env python
+
+import sys,os,argparse,re,time,subprocess
+
+# ==============================================================================
+
+def printversion():
+  print('''
+Version 0.1
+  ''')
+  sys.exit(0)
+
+# ==============================================================================
+
+def printhelp():
+  print('''
+NAME
+
+  pdfshrink - shrink PDF with GhostScript
+
+USAGE
+
+  $ pdfshrink INPUT.PDF [-o OUTPUT.PDF]
+
+DESCRIPTION
+
+  Shrink PDF with GhostScript.
+
+OPTIONS
+
+  -h, --help
+    Print help
+
+  --version
+    Print version
+
+  -o, --output STR
+    Save a new copy, instead of overwriting the current file.
+
+RELEASE
+
+  Version 0.1, January 2016
+
+COPYRIGHT
+
+  T.W.J. de Geus
+  ''')
+  sys.exit(0)
+
+# ==============================================================================
+
+# set options/arguments
+opts   = [\
+  ((     'input'        ),dict(nargs='+',type=str,metavar='INPUT.PDF')),
+  (('-o','--output'     ),dict(nargs=1  ,type=str,metavar='STR'      )),
+  (('-h','--help'       ),dict(action='store_true'                   )),
+  ((     '--version'    ),dict(action='store_true'                   )),
+]
+
+# parse command-line arguments
+# - catch help
+if sys.argv[1] in ['-h','--help'   ]: printhelp()
+if sys.argv[1] in [     '--version']: printversion()
+# - create parser
+parser = argparse.ArgumentParser(add_help=False)
+for (arg,opt) in opts:
+  if type(arg)==tuple: parser.add_argument(*arg,**opt)
+  else               : parser.add_argument( arg,**opt)
+# - execute parser / convert to "<dict>"
+args = vars(parser.parse_args())
+# - print help and exit
+if args['help'   ]: printhelp()
+if args['version']: printversion()
+
+# check
+args['mv'] = True
+if args['output'] is not None:
+  args['mv'] = False
+  if len(args['input'])>1:
+    print 'Not allowed to enter multiple input files if an output file is specified'
+    sys.exit(1)
+else:
+  name = '.pdfshrink_%d.pdf'%(int(time.time()))
+  args['output'] = [name for i in args['input']]
+
+# ==============================================================================
+
+for orig,dest in zip(args['input'],args['output']):
+
+  if args['mv']: print '[pdfshrink] %s'    %  orig
+  else         : print '[pdfshrink] %s %s' % (orig,dest)
+
+  cmd = ' '.join([
+    'gs -q -dBATCH -dNOPAUSE -sDEVICE=pdfwrite',
+    '-dPDFSETTINGS=/printer',
+    '-dCompatibilityLevel=1.3',
+    '-dColorImageDownsampleType=/Bicubic'
+    '-dColorImageResolution=72',
+    '-dGrayImageDownsampleType=/Bicubic',
+    '-dGrayImageResolution=72',
+    '-dMonoImageDownsampleType=/Bicubic',
+    '-dMonoImageResolution=38',
+    '-dOptimize=true',
+    '-dEmbedAllFonts=true',
+    '-dSubsetFonts=true',
+    '-dDownsampleColorImages=true',
+    '-dDownsampleGrayImages=true',
+    '-dDownsampleMonoImages=true',
+    '-dHaveTransparency=false',
+    '-dUseCIEColor',
+    '-dColorConversionStrategy=/sRGB',
+    '-sOutputFile=%s'%dest,
+    '%s'%orig,
+    '2>/dev/null',
+  ])
+
+  subprocess.check_output(cmd,shell=True)
+
+  if args['mv']:
+    subprocess.check_output('mv %s %s'%(dest,orig),shell=True)

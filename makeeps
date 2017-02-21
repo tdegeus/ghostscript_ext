@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# ==============================================================================
+
+function printhelp {
+echo "\
+
+NAME
+
+  makeeps - convert a file to an eps-file using Ghostscript
+
+USAGE
+
+  $ makeeps FILE
+
+DESCRIPTION
+
+  Convert a file to an eps-file using Ghostscript.
+
+SEE ALSO
+
+  gs
+
+COPYRIGHT
+
+  T.W.J. de Geus
+  J. Neggers
+"
+}
+
+# ==============================================================================
+
+function printversion {
+echo "\
+
+Version 1.0, August 2013
+"
+}
+
+# ==============================================================================
+
+# set executable
+gs=`which gs`
+func=`echo $0 | rev | cut -d"/" -f1 | rev`
+# check executable
+if ! [ -f $gs ]; then
+  echo "[$func] requires Ghostscript"; exit 1
+fi
+
+# loop over input
+while [ $# -gt 0 ]; do
+
+  # print help
+  if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    printhelp; exit 0
+  fi
+  if [ "$1" == "-v" ] || [ "$1" == "--version" ]; then
+    printversion; exit 0
+  fi
+  # check file name
+  if ![ -f $1 ]; then
+    echo "[$func] file does not exist"; exit 1
+  fi
+
+  # run gs
+  pdfname=$1
+  base=${pdfname%%.*}
+  $gs -dNOPAUSE -dNOCACHE -dBATCH -sDEVICE=epswrite -sOutputFile="${base}.eps" \
+    "${base}.pdf" > /dev/null 2>&1
+  echo "[$func] $pdfname"
+
+  # remove input argument: move to the next input argument
+  shift 1
+done

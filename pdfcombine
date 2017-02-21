@@ -1,0 +1,180 @@
+#!/usr/bin/env python
+
+import sys,os,argparse,subprocess
+
+# ==============================================================================
+
+def printversion():
+  print('''
+Version 2.0, 2016
+- Converted to Python [TdG]
+- Introduced book-option [TdG]
+
+Version 1.0, 2013
+- Updated help [TdG]
+
+Version 0.1, 2012
+- First version [JN]
+
+Editors
+[TdG] Tom de Geus
+[JN]  Jan Neggers
+  ''')
+  sys.exit(0)
+
+# ==============================================================================
+
+def printhelp():
+  print('''
+
+NAME
+
+  pdfcombine - combine several PDFs to a single PDF
+
+USAGE:
+
+  $ pdfcombine [-n NAME] [--help] PDF1 PDF2 ... PDFN
+
+DESCRIPTION
+
+  This function combines the specified PDF-documents (PDF1 PDF2 ... PDFN) into a
+  single document NAME.pdf (default: binder.pdf).
+
+OPTIONS
+
+  -h, --help
+    Print help.
+
+  -v, --version
+    Print change-log.
+
+  -o, --output STR
+    Name of the output file (default "binder.pdf").
+
+  --openright
+    Enforce that the next PDF always starts on an odd page.
+
+  --openleft
+    Enforce that the next PDF always starts on an even page.
+
+  --title STR
+    Set the title of the output PDF.
+
+  --author STR
+    Set the author of the output PDF.
+
+VERSION
+
+  Version 2.0, May 2016
+
+COPYRIGHT
+
+  T.W.J. de Geus
+  tom@geus.me
+  www.geus.me
+
+ACKNOWLEDGMENT
+
+  J. Neggers
+  ''')
+  sys.exit(0)
+
+# ==============================================================================
+
+# set options/arguments
+opts = [\
+  ((     'files'      ),dict(nargs='*',type=str,metavar='INPUT.PDF')),
+  (('-h','--help'     ),dict(action='store_true'                   )),
+  (('-v','--version'  ),dict(action='store_true'                   )),
+  (('-o','--output'   ),dict(nargs=1,type=str,default='binder.pdf' )),
+  ((     '--openright'),dict(action='store_true'                   )),
+  ((     '--openleft' ),dict(action='store_true'                   )),
+  ((     '--title'    ),dict(nargs=1,type=str                      )),
+  ((     '--author'   ),dict(nargs=1,type=str                      )),
+]
+
+# parse command-line arguments
+# - catch help
+if sys.argv[1] in ['-h','--help'   ]: printhelp()
+if sys.argv[1] in [     '--version']: printversion()
+# - create parser
+parser = argparse.ArgumentParser(add_help=False)
+for (arg,opt) in opts:
+  if type(arg)==tuple: parser.add_argument(*arg,**opt)
+  else               : parser.add_argument( arg,**opt)
+# - execute parser / convert to "<dict>"
+args = vars(parser.parse_args())
+# - print help and exit
+if args['help'   ]: printhelp()
+if args['version']: printversion()
+# - store function name
+args['function'] = os.path.basename(sys.argv[0])
+
+# check arguments
+if args['openright'] and args['openleft']:
+  print('"--openright" and "--openleft" are exclusive'); sys.exit(1)
+
+# read from list
+for key in ['output','author','title']:
+  if type(args[key])==list:
+    args[key] = args[key][0]
+
+# check that input files exist
+for f in args['files']:
+  if not os.path.isfile(f):
+    print('"%s" does not exist'%f); sys.exit(1)
+
+# ==============================================================================
+
+if args['author'] or args['title']:
+
+  # create a temporary "pdfmark"-file
+  tmp = '.pdfmark_tmp'
+  while os.path.isfile(tmp):
+    tmp += '_tmp'
+
+  # write "pdfmark"-file
+  text = []
+  if args['title' ]: text.append('  /Title ({title:s})'.format(**args))
+  if args['author']: text.append('  /Author ({author:s})'.format(**args))
+  text.append('  /DOCINFO pdfmark')
+  text = '\n'.join(text)
+
+  open(tmp,'w').write('['+text[1:])
+
+# ==============================================================================
+
+# read the number of pages in each PDF
+if args['openright'] or args['openleft']:
+  num = lambda name: int(subprocess.check_output('gs -q -dNODISPLAY -c "({fname:s}) (r) file runpdfbegin pdfpagecount = quit"'.format(fname=name),shell=True))
+  args['even'] = [False if num(f)%2!=0 else True for f in args['files']]
+
+# initiate command
+cmd = 'gs -sDEVICE=pdfwrite -dBATCH -dNOPAUSE -q -sPAPERSIZE=a4 -o {output:s}'.format(**args)
+
+# open left: start with a blank page
+if args['openleft']:
+  cmd += ' -c showpage'
+
+# loop of insert the files in order of appearance
+for i in range(len(args['files'])):
+  # optionally: insert banks page if the previous document had an odd number of pages
+  if i>0:
+    if (args['openleft'] or args['openright']) and not args['even'][i-1]:
+      cmd += ' -c showpage'
+  # inset new document
+  cmd += ' -f "%s"'%args['files'][i]
+
+# add pdfmarks
+if args['author'] or args['title']:
+  cmd += ' '+tmp
+
+# execute the command
+subprocess.check_output(cmd,shell=True)
+print('[{function:s}] {output:s}'.format(**args))
+
+# ==============================================================================
+
+# remove temporary "pdfmark"-file
+if args['author'] or args['title']:
+  os.remove(tmp)

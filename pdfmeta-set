@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# ==============================================================================
+
+function printhelp {
+echo "\
+
+NAME
+
+  pdfmeta-set - set PDF properties using Ghost-script
+
+USAGE
+
+  $ pdfmeta-set [-t TITLE] [-a AUTHOR] FILE
+
+DESCRIPTION
+
+  This program changes the properties of a PDF-documents using Ghost-script.
+
+OPTIONS
+
+  -h, --help
+    Print help.
+
+  -t STR
+    Title of the PDF.
+
+  -a STR
+    Author of the PDF.
+
+RELEASE
+
+  Version 1.0, October 2012
+
+COPYRIGHT
+
+  T.W.J. de Geus
+  tom@geus.me
+  www.geus.me
+"
+}
+
+# ==============================================================================
+
+# set usage
+usage="pdfmeta-set [-t TITLE] [-a AUTHOR] PDFNAME"
+
+# set default
+titlespec=0  # title not specified
+author="Ghostscript"  # author
+
+# read optional input
+while getopts 'h-:a:t:' OPT; do
+  case $OPT in
+    # help (-h or --help)
+    h )   printhelp; exit 0; ;;
+    - )   case $OPTARG in
+            help) printhelp;   exit 0 ;;
+            *)    echo $usage; exit 1 ;;
+          esac;;
+    # set the author
+    t ) titlespec=1; title=$OPTARG ;;
+    # set the title
+    a ) author=$OPTARG ;;
+    # error on unknown options
+    \? )  echo $usage; exit 1 ;;
+  esac
+done
+
+# remove the input options from "$@"
+shift $(($OPTIND-1))
+
+# read the input file
+pdf="$1"
+# set the default title as the pdf name
+if [ $titlespec -eq 0 ]; then
+  title="$pdf"
+fi
+
+# ==============================================================================
+
+# generate an unlikely string
+numb=`date '+%y%m%d%H%M%S'`
+# set temporary settings file
+tset="$pdf$numb.pdfmarks"
+# set temporary output
+tout="$pdf$numb.out"
+
+# generate a temporary file with the pdfmarks settings
+echo "[ /Title ($title)" > "$tset"
+echo "  /Author ($author)" >> "$tset"
+echo "  /DOCINFO pdfmark" >> "$tset"
+
+# apply settings using ghostscipt
+# http://milan.kupcevic.net/ghostscript-ps-pdf/
+gs -dBATCH -dNOPAUSE -dQUIET -sDEVICE=pdfwrite\
+   -sOutputFile="$tout" "$pdf" "$tset"
+
+# move temporary output
+mv "$tout" "$pdf"
+# remove temporary settings file
+rm "$tset"
+
+# ==============================================================================
+
+exit 0

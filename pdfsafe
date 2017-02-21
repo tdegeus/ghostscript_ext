@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# ==============================================================================
+
+function printhelp {
+echo "\
+
+NAME
+
+  pdfsafe - convert PDF to safe PDF files (removes vector character)
+
+USAGE
+
+  $ pdfsafe FILE
+
+DESCRIPTION
+
+  Convert PDF to safe PDF files (removes vector character), using pdf2ps and
+  ps2pdf
+
+SEE ALSO
+
+  pdf2ps
+  ps2pdf
+
+COPYRIGHT
+
+  T.W.J. de Geus
+  tom@geus.me
+  www.geus.me
+"
+}
+
+function printversion {
+echo "\
+
+Version 1.0, November 2015
+"
+}
+
+# ==============================================================================
+
+# set executable
+fwd=`which pdf2ps`
+rev=`which ps2pdf`
+func=`echo $0 | rev | cut -d"/" -f1 | rev`
+# check executable
+if ! [ -f $fwd ]; then
+  echo "[$func] requires pdf2ps"; exit 1
+fi
+if ! [ -f $rev ]; then
+  echo "[$func] requires ps2pdf"; exit 1
+fi
+
+# loop over input
+while [ $# -gt 0 ]; do
+
+  # print help
+  if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    printhelp; exit 0
+  fi
+  if [ "$1" == "-v" ] || [ "$1" == "--version" ]; then
+    printversion; exit 0
+  fi
+  # check file name
+  if ! [ -f $1 ]; then
+    echo "[$func] file does not exist"; exit 1
+  fi
+
+  # run gs
+  name=$1
+  name=${name%.*}
+  $fwd "$name.pdf"
+  $rev "$name.ps"
+  rm "$name.ps"
+  echo "[$func] $1"
+
+  # remove input argument: move to the next input argument
+  shift 1
+done

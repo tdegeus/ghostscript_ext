@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# ==============================================================================
+
+function printhelp {
+echo "\
+
+NAME
+
+  makepng - convert a file to an png-image using Ghostscript
+
+USAGE
+
+  $ makepng FILE
+
+DESCRIPTION
+
+  Convert a file to an png-image using Ghostscript.
+
+SEE ALSO
+
+  gs
+
+REQUESTED EXTENSIONS
+
+  Add the following option of the 'gs' command to force a white background:
+  -dBackgroundColor=16#RRGGBB
+
+COPYRIGHT
+
+  T.W.J. de Geus
+  J. Neggers
+"
+}
+
+# ==============================================================================
+
+function printversion {
+echo "\
+
+Version 1.0, August 2013
+"
+}
+
+# ==============================================================================
+
+# set executable
+gs=`which gs`
+func=`echo $0 | rev | cut -d"/" -f1 | rev`
+# check executable
+if ! [ -f $gs ]; then
+  echo "[$func] requires Ghostscript"; exit 1
+fi
+
+# loop over input
+while [ $# -gt 0 ]; do
+
+  # print help
+  if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    printhelp; exit 0
+  fi
+  if [ "$1" == "-v" ] || [ "$1" == "--version" ]; then
+    printversion; exit 0
+  fi
+  # check file name
+  if ![ -f $1 ]; then
+    echo "[$func] file does not exist"; exit 1
+  fi
+
+  # run gs
+  epsname=$1
+  base=${epsname%%.*}
+
+  gs -q -dBATCH -dNOPAUSE -sDEVICE=pngalpha -r150 -sOutputFile=${base}.png $epsname
+
+  echo "[$func] $epsname"
+
+  # remove input argument: move to the next input argument
+  shift 1
+done
