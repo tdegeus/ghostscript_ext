@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys,os,argparse,re,time,subprocess
 
@@ -77,7 +77,7 @@ args['mv'] = True
 if args['output'] is not None:
   args['mv'] = False
   if len(args['input'])>1:
-    print 'Not allowed to enter multiple input files if an output file is specified'
+    print('Not allowed to enter multiple input files if an output file is specified')
     sys.exit(1)
 else:
   name = '.pdfshrink_%d.pdf'%(int(time.time()))
@@ -87,8 +87,8 @@ else:
 
 for orig,dest in zip(args['input'],args['output']):
 
-  if args['mv']: print '[pdfshrink] %s'    %  orig
-  else         : print '[pdfshrink] %s %s' % (orig,dest)
+  if args['mv']: print('[pdfshrink] {src:s}'         .format(src=orig,dest=dest))
+  else         : print('[pdfshrink] {src:s} {dest:s}'.format(src=orig,dest=dest))
 
   cmd = ' '.join([
     'gs -q -dBATCH -dNOPAUSE -sDEVICE=pdfwrite',
