@@ -150,7 +150,7 @@ if args['openright'] or args['openleft']:
   args['even'] = [False if num(f)%2!=0 else True for f in args['files']]
 
 # initiate command
-cmd = 'gs -sDEVICE=pdfwrite -dBATCH -dNOPAUSE -q -sPAPERSIZE=a4 -o {output:s}'.format(**args)
+cmd = 'gs -sDEVICE=pdfwrite -dBATCH -dNOPAUSE -q -sPAPERSIZE=a4 -o "{output:s}"'.format(**args)
 
 # open left: start with a blank page
 if args['openleft']:
