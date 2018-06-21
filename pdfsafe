@@ -41,7 +41,7 @@ Version 1.0, November 2015
 # ==============================================================================
 
 # set executable
-fwd=`which pdf2ps`
+fwd=`which pdftops`
 rev=`which ps2pdf`
 func=`echo $0 | rev | cut -d"/" -f1 | rev`
 # check executable

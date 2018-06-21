@@ -9,6 +9,7 @@
 - [Modify PDF](#modify-pdf)
     - [`pdfcombine`](#pdfcombine)
     - [`pdfpages`](#pdfpages)
+    - [`pdfnofonts`](#pdfnofonts)
     - [`pdfsafe`](#pdfsafe)
     - [`pdfshrink`](#pdfshrink)
     - [`pdfmeta-set`](#pdfmeta-set)
@@ -31,9 +32,13 @@ Combine several PDFs to a single PDF.
 
 Extract one or more pages from a PDF.
 
+### `pdfnofonts`
+
+Convert fonts to outlines using GhostScript.
+
 ### `pdfsafe`
 
-Remove all characters from a PDF to, as far as possible, ensure correct printing of the PDFs.
+Convert a PDF to PostScript and back. This will reduce in a PDF that is always printable, but may remove the vectorial nature.
 
 ### `pdfshrink`
 
