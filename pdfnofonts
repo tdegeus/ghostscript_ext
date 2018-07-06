@@ -6,6 +6,7 @@ Usage:
   pdfnofonts [options] <FILES>...
 
 Options:
+  -s, --silent    Do not print any progress.
       --verbose   Verbose all commands and their output.
   -h, --help      Show help.
       --version   Show version.
@@ -71,7 +72,7 @@ for file in args['FILES']:
 
   # move input to temporary file
   # - execute
-  os.rename(file, tempFile)
+  shutil.move(file, tempFile)
   # - verbose
   if args['verbose']: print('mv {file:s} {tempFile:s}'.format(file=file, tempFile=tempFile))
 
@@ -86,3 +87,6 @@ for file in args['FILES']:
   shutil.rmtree(os.path.split(tempFile)[0])
   # - verbose
   if args['verbose']: print('rm -r {tempFile:s}'.format(tempFile=tempFile))
+
+  # print progress
+  if not args['silent']: print('[pdfnofonts] {file:s}'.format(file=file))
