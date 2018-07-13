@@ -1,95 +1,82 @@
 #!/usr/bin/env python3
+'''pdfshrink
+  Shrink a PDF's file size using GhostScript.
 
-import sys,os,argparse,re,time,subprocess
+Usage:
+  pdfshrink [options] <files>...
 
-# ==============================================================================
+Options:
+  -o, --output=<N>  Specify output file. (default: overwrite the input file(s))
+  -s, --silent      Do not print any progress.
+      --verbose     Verbose all commands.
+  -h, --help        Show help.
+      --version     Show version.
 
-def printversion():
-  print('''
-Version 0.1
-  ''')
-  sys.exit(0)
+(c - MIT) T.W.J. de Geus | tom@geus.me | www.geus.me
+'''
 
-# ==============================================================================
+# ========================================= LOAD LIBRARIES =========================================
 
-def printhelp():
-  print('''
-NAME
+import sys, os, re, docopt, subprocess, shutil, tempfile
 
-  pdfshrink - shrink PDF with GhostScript
+# ==================================== RAISE COMMAND LINE ERROR ====================================
 
-USAGE
+def Error(msg,exit_code=1):
+  print(msg)
+  sys.exit(exit_code)
 
-  $ pdfshrink INPUT.PDF [-o OUTPUT.PDF]
+# ========================================== RUN COMMAND ===========================================
 
-DESCRIPTION
+def Run(cmd,verbose=False,**kwargs):
 
-  Shrink PDF with GhostScript.
+  out = subprocess.check_output(cmd,shell=True).decode('utf-8')
 
-OPTIONS
+  if verbose:
+    print(cmd)
+    print(out,end='')
 
-  -h, --help
-    Print help
+  return out
 
-  --version
-    Print version
+# ========================================== MAIN PROGRAM ==========================================
 
-  -o, --output STR
-    Save a new copy, instead of overwriting the current file.
-
-RELEASE
-
-  Version 0.1, January 2016
-
-COPYRIGHT
-
-  T.W.J. de Geus
-  ''')
-  sys.exit(0)
-
-# ==============================================================================
-
-# set options/arguments
-opts   = [\
-  ((     'input'        ),dict(nargs='+',type=str,metavar='INPUT.PDF')),
-  (('-o','--output'     ),dict(nargs=1  ,type=str,metavar='STR'      )),
-  (('-h','--help'       ),dict(action='store_true'                   )),
-  ((     '--version'    ),dict(action='store_true'                   )),
-]
+# ---------------------------------- parse command line arguments ----------------------------------
 
 # parse command-line arguments
-# - catch help
-if sys.argv[1] in ['-h','--help'   ]: printhelp()
-if sys.argv[1] in [     '--version']: printversion()
-# - create parser
-parser = argparse.ArgumentParser(add_help=False)
-for (arg,opt) in opts:
-  if type(arg)==tuple: parser.add_argument(*arg,**opt)
-  else               : parser.add_argument( arg,**opt)
-# - execute parser / convert to "<dict>"
-args = vars(parser.parse_args())
-# - print help and exit
-if args['help'   ]: printhelp()
-if args['version']: printversion()
+args = docopt.docopt(__doc__,version='0.0.1')
 
-# check
-args['mv'] = True
-if args['output'] is not None:
-  args['mv'] = False
-  if len(args['input'])>1:
-    print('Not allowed to enter multiple input files if an output file is specified')
-    sys.exit(1)
-else:
-  name = '.pdfshrink_%d.pdf'%(int(time.time()))
-  args['output'] = [name for i in args['input']]
+# change keys to simplify implementation:
+# - remove leading "-" and "--" from options
+args = {re.sub(r'([\-]{1,2})(.*)',r'\2',key): args[key] for key in args}
+# - change "-" to "_" to facilitate direct use in print format
+args = {key.replace('-','_'): args[key] for key in args}
+# - remove "<...>"
+args = {re.sub(r'(<)(.*)(>)',r'\2',key): args[key] for key in args}
 
-# ==============================================================================
+# --------------------------------------------- check ----------------------------------------------
 
-for orig,dest in zip(args['input'],args['output']):
+# required command
+if not shutil.which('gs'):
+  Error('"gs" not found')
 
-  if args['mv']: print('[pdfshrink] {src:s}'         .format(src=orig,dest=dest))
-  else         : print('[pdfshrink] {src:s} {dest:s}'.format(src=orig,dest=dest))
+# check that files exist
+for file in args['files']:
+  if not os.path.isfile(file):
+    Error('"%s" does not exist' % file)
 
+# check exclusive option
+if args['output'] and len(args['files']) > 1:
+  Error('"--output" can only be specified of not more than one file provided')
+
+# -------------------------------------------- convert ---------------------------------------------
+
+# loop over input files
+for file in args['files']:
+
+  # - set output file
+  if args['output']: out = args['output']
+  else             : out = os.path.join(tempfile.mkdtemp(), 'pdfshrink.pdf')
+
+  # - define command
   cmd = ' '.join([
     'gs -q -dBATCH -dNOPAUSE -sDEVICE=pdfwrite',
     '-dPDFSETTINGS=/printer',
@@ -109,12 +96,26 @@ for orig,dest in zip(args['input'],args['output']):
     '-dHaveTransparency=false',
     '-dUseCIEColor',
     '-dColorConversionStrategy=/sRGB',
-    '-sOutputFile=%s'%dest,
-    '%s'%orig,
+    '-sOutputFile="%s"'%out,
+    '"%s"'%file,
     '2>/dev/null',
   ])
 
-  subprocess.check_output(cmd,shell=True)
+  # - run command
+  Run(cmd,**args)
 
-  if args['mv']:
-    subprocess.check_output('mv %s %s'%(dest,orig),shell=True)
+  # - remove temporary file
+  if not args['output']:
+    # -- move
+    shutil.move(out, file)
+    # -- remove
+    shutil.rmtree(os.path.split(out)[0])
+    # -- verbose
+    if args['verbose']:
+      print('mv {out:s} {file:s}'.format(out=out,file=file))
+      print('rm -r {out:s}'.format(out=out))
+
+  # - print progress
+  if not args['silent']:
+    if args['output']: print('[pdfshrink] {file:s} {out:s}'.format(file=file,out=out))
+    else             : print('[pdfshrink] {file:s}'.format(file=file))
