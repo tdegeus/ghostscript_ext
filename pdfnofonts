@@ -3,11 +3,11 @@
   Convert PDF to PDF where all fonts are converted to outlines.
 
 Usage:
-  pdfnofonts [options] <FILES>...
+  pdfnofonts [options] <files>...
 
 Options:
   -s, --silent    Do not print any progress.
-      --verbose   Verbose all commands and their output.
+      --verbose   Verbose all commands.
   -h, --help      Show help.
       --version   Show version.
 
@@ -16,7 +16,7 @@ Options:
 
 # ========================================= LOAD LIBRARIES =========================================
 
-import os, sys, re, subprocess, shutil, tempfile, docopt
+import sys, os, re, docopt, subprocess, shutil, tempfile
 
 # ==================================== RAISE COMMAND LINE ERROR ====================================
 
@@ -26,7 +26,7 @@ def Error(msg,exit_code=1):
 
 # ========================================== RUN COMMAND ===========================================
 
-def run(cmd,verbose=False,**kwargs):
+def Run(cmd,verbose=False,**kwargs):
 
   out = subprocess.check_output(cmd,shell=True).decode('utf-8')
 
@@ -40,7 +40,7 @@ def run(cmd,verbose=False,**kwargs):
 
 # ---------------------------------- parse command line arguments ----------------------------------
 
-# parse command-line options
+# parse command-line arguments
 args = docopt.docopt(__doc__,version='0.0.1')
 
 # change keys to simplify implementation:
@@ -58,14 +58,14 @@ if not shutil.which('gs'):
   Error('"gs" not found')
 
 # check that files exist
-for file in args['FILES']:
+for file in args['files']:
   if not os.path.isfile(file):
     Error('"%s" does not exist' % file)
 
 # -------------------------------------------- convert ---------------------------------------------
 
 # loop over input files
-for file in args['FILES']:
+for file in args['files']:
 
   # get filename of a temporary file, in a unique temporary directory
   tempFile = os.path.join(tempfile.mkdtemp(), 'pdfnofonts.pdf')
@@ -80,9 +80,9 @@ for file in args['FILES']:
   # - set command
   cmd = 'gs -o {file:s} -dNoOutputFonts -sDEVICE=pdfwrite {tempFile:s}'.format(tempFile=tempFile, file=file)
   # - verbose & execute
-  run(cmd,**args)
+  Run(cmd,**args)
 
-  # remove temporary file and unique directory
+  # remove temporary file and directory
   # - execute
   shutil.rmtree(os.path.split(tempFile)[0])
   # - verbose

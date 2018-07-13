@@ -1,153 +1,136 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+'''pdfcombine
+  Combine several PDFs to a single PDF.
 
-import sys,os,argparse,subprocess
+Usage:
+  pdfcombine [options] <files>...
 
-# ==============================================================================
+Options:
+      --openleft      Enforce that the next PDF always starts on an even page.
+      --openright     Enforce that the next PDF always starts on an odd page.
+      --title=<N>     Set the title  of the output PDF.
+      --author=<N>    Set the author of the output PDF.
+      --no-bookmarks  Do not use original filenames as bookmarks.
+      --add-ps=<N>    Add commands to the generated PostScript program (inspect using '--verbose').
+      --ps=<N>        Overwrite the automatically generated PostScript program.
+      --no-ps         Do not run any PostScript program (to edit meta-data).
+  -o, --output=<N>    Name of the output file. [default: binder.pdf]
+  -s, --silent        Do not print any progress.
+      --verbose       Verbose all commands.
+  -h, --help          Show help.
+      --version       Show version.
 
-def printversion():
-  print('''
-Version 2.0, 2016
-- Converted to Python [TdG]
-- Introduced book-option [TdG]
+(c - MIT) T.W.J. de Geus | tom@geus.me | www.geus.me
+'''
 
-Version 1.0, 2013
-- Updated help [TdG]
+# ========================================= LOAD LIBRARIES =========================================
 
-Version 0.1, 2012
-- First version [JN]
+import sys, os, re, docopt, subprocess, shutil, tempfile
 
-Editors
-[TdG] Tom de Geus
-[JN]  Jan Neggers
-  ''')
-  sys.exit(0)
+# ==================================== RAISE COMMAND LINE ERROR ====================================
 
-# ==============================================================================
+def Error(msg,exit_code=1):
+  print(msg)
+  sys.exit(exit_code)
 
-def printhelp():
-  print('''
+# ========================================== RUN COMMAND ===========================================
 
-NAME
+def Run(cmd,verbose=False,**kwargs):
 
-  pdfcombine - combine several PDFs to a single PDF
+  out = subprocess.check_output(cmd,shell=True).decode('utf-8')
 
-USAGE:
+  if verbose:
+    print(cmd)
+    print(out,end='')
 
-  $ pdfcombine [-n NAME] [--help] PDF1 PDF2 ... PDFN
+  return out
 
-DESCRIPTION
+# ========================================== MAIN PROGRAM ==========================================
 
-  This function combines the specified PDF-documents (PDF1 PDF2 ... PDFN) into a
-  single document NAME.pdf (default: binder.pdf).
-
-OPTIONS
-
-  -h, --help
-    Print help.
-
-  -v, --version
-    Print change-log.
-
-  -o, --output STR
-    Name of the output file (default "binder.pdf").
-
-  --openright
-    Enforce that the next PDF always starts on an odd page.
-
-  --openleft
-    Enforce that the next PDF always starts on an even page.
-
-  --title STR
-    Set the title of the output PDF.
-
-  --author STR
-    Set the author of the output PDF.
-
-VERSION
-
-  Version 2.0, May 2016
-
-COPYRIGHT
-
-  T.W.J. de Geus
-  tom@geus.me
-  www.geus.me
-
-ACKNOWLEDGMENT
-
-  J. Neggers
-  ''')
-  sys.exit(0)
-
-# ==============================================================================
-
-# set options/arguments
-opts = [\
-  ((     'files'      ),dict(nargs='*',type=str,metavar='INPUT.PDF')),
-  (('-h','--help'     ),dict(action='store_true'                   )),
-  (('-v','--version'  ),dict(action='store_true'                   )),
-  (('-o','--output'   ),dict(nargs=1,type=str,default='binder.pdf' )),
-  ((     '--openright'),dict(action='store_true'                   )),
-  ((     '--openleft' ),dict(action='store_true'                   )),
-  ((     '--title'    ),dict(nargs=1,type=str                      )),
-  ((     '--author'   ),dict(nargs=1,type=str                      )),
-]
+# ---------------------------------- parse command line arguments ----------------------------------
 
 # parse command-line arguments
-# - catch help
-if sys.argv[1] in ['-h','--help'   ]: printhelp()
-if sys.argv[1] in [     '--version']: printversion()
-# - create parser
-parser = argparse.ArgumentParser(add_help=False)
-for (arg,opt) in opts:
-  if type(arg)==tuple: parser.add_argument(*arg,**opt)
-  else               : parser.add_argument( arg,**opt)
-# - execute parser / convert to "<dict>"
-args = vars(parser.parse_args())
-# - print help and exit
-if args['help'   ]: printhelp()
-if args['version']: printversion()
-# - store function name
-args['function'] = os.path.basename(sys.argv[0])
+args = docopt.docopt(__doc__,version='0.3.0')
 
-# check arguments
+# change keys to simplify implementation:
+# - remove leading "-" and "--" from options
+args = {re.sub(r'([\-]{1,2})(.*)',r'\2',key): args[key] for key in args}
+# - change "-" to "_" to facilitate direct use in print format
+args = {key.replace('-','_'): args[key] for key in args}
+# - remove "<...>"
+args = {re.sub(r'(<)(.*)(>)',r'\2',key): args[key] for key in args}
+
+# --------------------------------------------- check ----------------------------------------------
+
+# required command
+if not shutil.which('gs'):
+  Error('"gs" not found')
+
+# check exclusive options
 if args['openright'] and args['openleft']:
-  print('"--openright" and "--openleft" are exclusive'); sys.exit(1)
+  Error('"--openright" and "--openleft" are exclusive options')
 
-# read from list
-for key in ['output','author','title']:
-  if type(args[key])==list:
-    args[key] = args[key][0]
+# check that files exist
+for file in args['files']:
+  if not os.path.isfile(file):
+    Error('"%s" does not exist' % file)
 
-# check that input files exist
-for f in args['files']:
-  if not os.path.isfile(f):
-    print('"%s" does not exist'%f); sys.exit(1)
+# -------------------------------------- read number of pages --------------------------------------
 
-# ==============================================================================
+if args['openright'] or args['openright'] or not args['no_bookmarks']:
 
-if args['author'] or args['title']:
+  if args['verbose']: print('\n---- reading number of pages per files ----\n')
 
-  # create a temporary "pdfmark"-file
-  tmp = '.pdfmark_tmp'
-  while os.path.isfile(tmp):
-    tmp += '_tmp'
+  pages = []
 
-  # write "pdfmark"-file
-  text = []
-  if args['title' ]: text.append('  /Title ({title:s})'.format(**args))
-  if args['author']: text.append('  /Author ({author:s})'.format(**args))
-  text.append('  /DOCINFO pdfmark')
-  text = '\n'.join(text)
+  for file in args['files']:
 
-  open(tmp,'w').write('['+text[1:])
+    cmd = 'gs -q -dNODISPLAY -c "({0:s}) (r) file runpdfbegin pdfpagecount = quit"'.format(file)
 
-# ==============================================================================
+    pages += [int(Run(cmd,**args))]
 
-# read the number of pages in each PDF
-if args['openright'] or args['openleft']:
-  num = lambda name: int(subprocess.check_output('gs -q -dNODISPLAY -c "({fname:s}) (r) file runpdfbegin pdfpagecount = quit"'.format(fname=name),shell=True))
-  args['even'] = [False if num(f)%2!=0 else True for f in args['files']]
+  even = [False if n%2!=0 else True for n in pages]
+
+# ------------------------------------ set GhostScript commands ------------------------------------
+
+# set commands
+if args['ps']:
+  ps = args['ps']
+
+# automatically generate commands
+else:
+  # - initialize
+  ps = []
+  # - add title
+  if args['title']:
+    ps += ['/Title ({title:s})'.format(**args)]
+  # - add author
+  if args['author']:
+    ps += ['/Author ({author:s})'.format(**args)]
+  # - add bookmarks
+  if not args['no_bookmarks']:
+    i = 1
+    for file, n in zip(args['files'], pages):
+      ps += ['/Page {0:d} /Title ({1:s}) /OUT pdfmark'.format(i, file)]
+      i  += n
+  # - combine
+  ps = '[ '+'\n[ '.join(ps)
+  # - add other commands
+  if args['add_ps']: ps += '\n'+args['add_ps']
+
+# store in temporary file
+if not args['no_ps']:
+  # - get filename
+  tempFile = os.path.join(tempfile.mkdtemp(), 'pdfcombine.ps')
+  # - store
+  open(tempFile,'w').write(ps)
+  # - verbose
+  if args['verbose']:
+    print('\n---- created "{0:s}":\n\n{1:s}'.format(tempFile,ps))
+
+# --------------------------------------- create/run command ---------------------------------------
+
+if args['verbose']: print('\n---- combining files ----\n')
 
 # initiate command
 cmd = 'gs -sDEVICE=pdfwrite -dBATCH -dNOPAUSE -q -sPAPERSIZE=a4 -o "{output:s}"'.format(**args)
@@ -158,23 +141,30 @@ if args['openleft']:
 
 # loop of insert the files in order of appearance
 for i in range(len(args['files'])):
-  # optionally: insert banks page if the previous document had an odd number of pages
+  # - optionally: insert banks page if the previous document had an odd number of pages
   if i>0:
-    if (args['openleft'] or args['openright']) and not args['even'][i-1]:
+    if (args['openleft'] or args['openright']) and not even[i-1]:
       cmd += ' -c showpage'
-  # inset new document
+  # - inset new document
   cmd += ' -f "%s"'%args['files'][i]
 
-# add pdfmarks
-if args['author'] or args['title']:
-  cmd += ' '+tmp
+# - add pdfmarks
+if not args['no_ps']:
+  cmd += ' '+tempFile
 
 # execute the command
-subprocess.check_output(cmd,shell=True)
-print('[{function:s}] {output:s}'.format(**args))
+Run(cmd,**args)
 
-# ==============================================================================
+# ------------------------------ remove temporary file and directory -------------------------------
 
-# remove temporary "pdfmark"-file
-if args['author'] or args['title']:
-  os.remove(tmp)
+if args['verbose']: print('\n---- cleaning up ----\n')
+
+if not args['no_ps']:
+  # - execute
+  shutil.rmtree(os.path.split(tempFile)[0])
+  # - verbose
+  if args['verbose']: print('rm -r {tempFile:s}'.format(tempFile=tempFile))
+
+# ----------------------------------------- print progress -----------------------------------------
+
+if not args['silent']: print('[pdfcombine] {output:s}'.format(**args))
