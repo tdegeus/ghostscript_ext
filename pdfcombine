@@ -15,6 +15,7 @@ Options:
       --ps=<N>        Overwrite the automatically generated PostScript program.
       --no-ps         Do not run any PostScript program (to edit meta-data).
   -o, --output=<N>    Name of the output file. [default: binder.pdf]
+  -f, --force         Force overwrite of existing output.
   -s, --silent        Do not print any progress.
       --verbose       Verbose all commands.
   -h, --help          Show help.
@@ -45,6 +46,16 @@ def Run(cmd,verbose=False,**kwargs):
 
   return out
 
+# ==================================== PROMPT USER CONFIRMATION ====================================
+
+def Confirm(message='Proceed [y/n]?\n'):
+  while True:
+    user = input(message)
+    if not user                     : print('Please enter y or n.'); continue
+    if user not in ['y','Y','n','N']: print('Please enter y or n.'); continue
+    if user     in ['y','Y'        ]: return True
+    if user     in ['n','N'        ]: return False
+
 # ========================================== MAIN PROGRAM ==========================================
 
 # ---------------------------------- parse command line arguments ----------------------------------
@@ -73,7 +84,18 @@ if args['openright'] and args['openleft']:
 # check that files exist
 for file in args['files']:
   if not os.path.isfile(file):
-    Error('"%s" does not exist' % file)
+    Error('"{0:s}" does not exist'.format(file))
+
+# check the input and output are not the same
+for file in args['files']:
+  if os.path.abspath(file) == os.path.abspath(args['output']):
+    Error('"{output:s}" is in the input and output, this might cause problems'.format(**args))
+
+# confirm overwrite
+if os.path.isfile(args['output']):
+  print('Overwrite existing "{output:s}"'.format(**args))
+  if not confirm():
+    sys.exit(1)
 
 # -------------------------------------- read number of pages --------------------------------------
 
