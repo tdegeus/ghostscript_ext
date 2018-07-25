@@ -21,7 +21,9 @@ import sys, os, re, docopt, subprocess, shutil, tempfile
 # ==================================== RAISE COMMAND LINE ERROR ====================================
 
 def Error(msg,exit_code=1):
+
   print(msg)
+
   sys.exit(exit_code)
 
 # ========================================== RUN COMMAND ===========================================

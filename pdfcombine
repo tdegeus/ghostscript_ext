@@ -26,12 +26,14 @@ Options:
 
 # ========================================= LOAD LIBRARIES =========================================
 
-import sys, os, re, docopt, subprocess, shutil, tempfile
+import sys, os, re, docopt, subprocess, shutil, tempfile, click
 
 # ==================================== RAISE COMMAND LINE ERROR ====================================
 
 def Error(msg,exit_code=1):
+
   print(msg)
+
   sys.exit(exit_code)
 
 # ========================================== RUN COMMAND ===========================================
@@ -45,16 +47,6 @@ def Run(cmd,verbose=False,**kwargs):
     print(out,end='')
 
   return out
-
-# ==================================== PROMPT USER CONFIRMATION ====================================
-
-def Confirm(message='Proceed [y/n]?\n'):
-  while True:
-    user = input(message)
-    if not user                     : print('Please enter y or n.'); continue
-    if user not in ['y','Y','n','N']: print('Please enter y or n.'); continue
-    if user     in ['y','Y'        ]: return True
-    if user     in ['n','N'        ]: return False
 
 # ========================================== MAIN PROGRAM ==========================================
 
@@ -92,9 +84,8 @@ for file in args['files']:
     Error('"{output:s}" is in the input and output, this might cause problems'.format(**args))
 
 # confirm overwrite
-if os.path.isfile(args['output']):
-  print('Overwrite existing "{output:s}"'.format(**args))
-  if not confirm():
+if os.path.isfile(args['output']) and not args['force']:
+  if not click.confirm('Overwrite existing "{output:s}"'.format(**args)):
     sys.exit(1)
 
 # -------------------------------------- read number of pages --------------------------------------
