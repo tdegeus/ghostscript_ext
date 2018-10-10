@@ -76,11 +76,11 @@ for file in args['files']:
   # - execute
   shutil.move(file, tempFile)
   # - verbose
-  if args['verbose']: print('mv {file:s} {tempFile:s}'.format(file=file, tempFile=tempFile))
+  if args['verbose']: print('mv "{file:s}" "{tempFile:s}"'.format(file=file, tempFile=tempFile))
 
   # remove font using "gs"
   # - set command
-  cmd = 'gs -o {file:s} -dNoOutputFonts -sDEVICE=pdfwrite {tempFile:s}'.format(tempFile=tempFile, file=file)
+  cmd = 'gs -o "{file:s}" -dNoOutputFonts -sDEVICE=pdfwrite "{tempFile:s}"'.format(tempFile=tempFile, file=file)
   # - verbose & execute
   Run(cmd,**args)
 
@@ -88,7 +88,7 @@ for file in args['files']:
   # - execute
   shutil.rmtree(os.path.split(tempFile)[0])
   # - verbose
-  if args['verbose']: print('rm -r {tempFile:s}'.format(tempFile=tempFile))
+  if args['verbose']: print('rm -r "{tempFile:s}"'.format(tempFile=tempFile))
 
   # print progress
-  if not args['silent']: print('[pdfnofonts] {file:s}'.format(file=file))
+  if not args['silent']: print('[pdfnofonts] "{file:s}"'.format(file=file))
